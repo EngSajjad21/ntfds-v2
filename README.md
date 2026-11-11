@@ -1,8 +1,9 @@
 # Network Troubleshooting & Fault Detection System (NTFDS) v2
 
-NTFDS v2 is a self-hosted, offline-first network operations console for monitoring infrastructure, detecting service degradation, diagnosing faults, and reporting SLA performance from a single web interface.
-
-It is designed for teams that need practical network visibility without sending monitoring data to a cloud service. The application runs locally with SQLite, ships its frontend dependencies locally, and can be deployed with either Python or Docker.
+NTFDS v2 is a self-hosted network monitoring and fault detection platform.
+It provides real-time device checks, incident management, diagnostics, and SLA reporting.
+The system supports ICMP, TCP, HTTP(S), DNS, discovery, dependency-aware analysis, and alerts.
+It runs locally with Python or Docker and includes English/Arabic interfaces with offline-friendly assets.
 
 <p align="center">
   <img src="screenshots/dashboard1.png" width="900" alt="NTFDS monitoring dashboard"><br>
