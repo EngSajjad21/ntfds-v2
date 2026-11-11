@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NTFDS — Network Operations</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f766e'/%3E%3Cpath d='M5 17h5l3-8 5 15 3-7h6' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body data-auth="{{ 'on' if auth else 'off' }}">
+
+<header class="top">
+  <div class="brand"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M5 17h5l3-8 5 15 3-7h6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <b>NTFDS</b><span class="ver">v{{ version }}</span></div>
+  <nav id="tabs" role="tablist">
+    <button data-tab="overview" class="on" data-i18n="nav_overview">Overview</button>
+    <button data-tab="topology" data-i18n="nav_topology">Topology</button>
+    <button data-tab="incidents" data-i18n="nav_incidents">Incidents <span id="incBadge" class="badge hide">0</span></button>
+    <button data-tab="tools" data-i18n="nav_tools">Tools</button>
+    <button data-tab="discovery" data-i18n="nav_discovery">Discovery</button>
+    <button data-tab="reports" data-i18n="nav_reports">Reports</button>
+    <button data-tab="settings" data-i18n="nav_settings">Settings</button>
+  </nav>
+  <div class="tools">
+    <span id="conn" class="conn off" title="live connection"><i></i><span id="connTxt">offline</span></span>
+    <button id="langBtn" class="ghost" title="Language">عربي</button>
+    <button id="themeBtn" class="ghost" title="Theme" aria-label="Theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+    <button id="tokenBtn" class="ghost hide" title="API token">🔑</button>
+  </div>
+</header>
+
+<main>
+<!-- ───────── Overview ───────── -->
+<section id="tab-overview" class="tab on">
+  <div class="kpis" id="kpis"></div>
+  <div class="grid-ov">
+    <div class="card map-card">
+      <div id="map" data-tile="{{ tile_url }}"></div>
+      <div id="mapHint" class="map-hint hide" data-i18n="map_hint">Add latitude/longitude to a device to see it on the map.</div>
+    </div>
+    <div class="card list-card">
+      <div class="list-head">
+        <input id="q" type="search" placeholder="Search…" data-i18n-ph="search">
+        <select id="fStatus"><option value="" data-i18n="all_status">All statuses</option></select>
+        <select id="fGroup"><option value="" data-i18n="all_groups">All groups</option></select>
+        <button id="addBtn" class="primary" data-i18n="add_device">+ Device</button>
+      </div>
+      <div id="devList" class="dev-list"></div>
+    </div>
+  </div>
+  <div id="detail" class="card detail hide"></div>
+</section>
+
+<!-- ───────── Topology ───────── -->
+<section id="tab-topology" class="tab">
+  <div class="card"><div class="card-h"><h3 data-i18n="topo_title">Dependency topology</h3><small class="muted" data-i18n="topo_help">Set a device's “parent” to model uplinks. When a parent fails, its children show as Unreachable instead of raising separate alerts.</small></div>
+    <div id="topo" class="topo"></div></div>
+</section>
+
+<!-- ───────── Incidents ───────── -->
+<section id="tab-incidents" class="tab">
+  <div class="card"><div class="card-h"><h3 data-i18n="nav_incidents">Incidents</h3>
+    <select id="incFilter"><option value="">All</option><option value="open" selected>Open</option><option value="resolved">Resolved</option></select></div>
+    <div class="table-wrap"><table id="incTable"><thead><tr><th data-i18n="th_sev">Severity</th><th data-i18n="th_device">Device</th><th data-i18n="th_type">Type</th><th data-i18n="th_msg">Details</th><th data-i18n="th_started">Started</th><th data-i18n="th_dur">Duration</th><th></th></tr></thead><tbody></tbody></table></div></div>
+</section>
+
+<!-- ───────── Tools ───────── -->
+<section id="tab-tools" class="tab">
+  <div class="card">
+    <div class="card-h"><h3 data-i18n="nav_tools">Troubleshooting tools</h3></div>
+    <form id="toolForm" class="tool-form">
+      <select id="toolSel">
+        <option value="diagnose" data-i18n="tool_diagnose">Auto-diagnose</option>
+        <option value="ping">Ping</option><option value="traceroute">Traceroute</option>
+        <option value="dns">DNS lookup</option><option value="ports">Port scan</option><option value="http">HTTP(S) probe</option>
+      </select>
+      <input id="toolTarget" placeholder="host / IP / URL" required autocomplete="off">
+      <input id="toolExtra" placeholder="" class="hide">
+      <button class="primary" id="toolGo" data-i18n="run">Run</button>
+    </form>
+    <div id="toolOut" class="tool-out muted" data-i18n="tool_idle">Pick a tool and a target. Auto-diagnose walks DNS → gateway → Internet → target → service → path and tells you where it breaks.</div>
+  </div>
+</section>
+
+<!-- ───────── Discovery ───────── -->
+<section id="tab-discovery" class="tab">
+  <div class="card">
+    <div class="card-h"><h3 data-i18n="nav_discovery">Network discovery</h3></div>
+    <form id="discForm" class="tool-form"><input id="discCidr" placeholder="auto-detect (e.g. 192.168.1.0/24)"><button class="primary" data-i18n="scan">Scan</button></form>
+    <div id="discProg" class="progress hide"><div></div></div>
+    <div class="table-wrap"><table id="discTable" class="hide"><thead><tr><th><input type="checkbox" id="discAll"></th><th>IP</th><th data-i18n="th_name">Hostname</th><th>MAC</th><th>RTT</th><th></th></tr></thead><tbody></tbody></table></div>
+    <div class="row-end"><button id="discAdd" class="primary hide" data-i18n="add_selected">Add selected to monitoring</button></div>
+  </div>
+</section>
+
+<!-- ───────── Reports ───────── -->
+<section id="tab-reports" class="tab">
+  <div class="card">
+    <div class="card-h"><h3 data-i18n="nav_reports">SLA report</h3>
+      <div class="inline"><select id="slaDays"><option value="1">24h</option><option value="7">7d</option><option value="30" selected>30d</option><option value="90">90d</option></select>
+      <button class="ghost" data-dl="/api/reports/sla?format=csv" id="slaCsv">CSV</button>
+      <button class="ghost" data-dl="/api/devices/export" data-i18n="export_dev">Export devices</button>
+      <label class="ghost btn"><span data-i18n="import_dev">Import devices</span><input type="file" id="importFile" accept=".csv,.json" hidden></label></div></div>
+    <div class="table-wrap"><table id="slaTable"><thead><tr><th data-i18n="th_device">Device</th><th>Uptime</th><th data-i18n="nav_incidents">Incidents</th><th>MTTR</th><th data-i18n="th_down">Downtime</th><th>Avg RTT</th><th>P95</th><th data-i18n="th_loss">Loss</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<!-- ───────── Settings ───────── -->
+<section id="tab-settings" class="tab two">
+  <div class="card"><div class="card-h"><h3 data-i18n="set_thresholds">Detection thresholds</h3></div>
+    <form id="setForm" class="form-grid"></form></div>
+  <div class="card"><div class="card-h"><h3 data-i18n="set_channels">Alert channels</h3></div>
+    <div id="chList"></div>
+    <form id="chForm" class="form-grid">
+      <label>Name<input name="name" required></label>
+      <label>Type<select name="type"><option>webhook</option><option>slack</option><option>discord</option><option>telegram</option><option>email</option></select></label>
+      <label data-f="url">URL<input name="url" placeholder="https://…"></label>
+      <label data-f="bot_token" class="hide">Bot token<input name="bot_token"></label>
+      <label data-f="chat_id" class="hide">Chat ID<input name="chat_id"></label>
+      <label data-f="to" class="hide">E-mail to<input name="to" type="email"></label>
+      <label>Min severity<select name="min_severity"><option value="warning">warning</option><option value="critical">critical only</option></select></label>
+      <div class="span2"><button class="primary" data-i18n="add_channel">Add channel</button></div>
+    </form></div>
+</section>
+</main>
+
+<dialog id="devDlg"><form method="dialog" id="devForm" class="form-grid dlg"></form></dialog>
+<dialog id="tokDlg"><form method="dialog" class="dlg"><h3>API token</h3><input id="tokInput" type="password" placeholder="NTFDS_API_TOKEN" autocomplete="off"><div class="row-end"><button value="ok" class="primary">OK</button></div></form></dialog>
+<div id="toasts" aria-live="polite"></div>
+
+<script src="{{ url_for('static', filename='vendor/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/socket.io.min.js') }}"></script>
+<script src="{{ url_for('static', filename='i18n.js') }}"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

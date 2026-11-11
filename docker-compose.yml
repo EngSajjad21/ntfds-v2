@@ -1,0 +1,14 @@
+services:
+  ntfds:
+    build: .
+    ports: ["5000:5000"]
+    volumes: ["ntfds-data:/data"]
+    environment:
+      NTFDS_API_TOKEN: ${NTFDS_API_TOKEN:-}      # set this before exposing the port beyond localhost
+      SECRET_KEY: ${SECRET_KEY:-}
+    cap_add: [NET_RAW]                            # unprivileged ICMP ping
+    restart: unless-stopped
+    # To monitor/scan the host's real LAN from Docker on Linux, uncomment (and drop `ports`):
+    # network_mode: host
+volumes:
+  ntfds-data:
